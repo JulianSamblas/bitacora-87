@@ -1004,6 +1004,11 @@ function sesSpeed(sd){
  var km=num(sd.km),mn=num(sd.min);
  return km&&mn?km/(mn/60):0;
 }
+/* Eficiencia aeróbica: metros recorridos por latido (velocidad en m/min ÷ FC media). */
+function sesEff(sd){
+ var v=sesSpeed(sd),hr=num(sd.fc);
+ return v&&hr?(v*1000/60)/hr:0;
+}
 function paceTxt(kmh){
  if(!kmh)return "–";
  var s=Math.round(3600/kmh),m=Math.floor(s/60),r=s%60;
@@ -1011,10 +1016,11 @@ function paceTxt(kmh){
 }
 function radarAxes(sport){
  return [
-  {n:"Distancia",f:function(sd){return num(sd.km);},u:function(v){return dec(v,1)+" km";}},
+  {n:"Eficiencia",f:sesEff,u:function(v){return dec(v,2)+" m/latido";}},
   {n:"Velocidad",f:sesSpeed,u:function(v){return sport==="run"?paceTxt(v):dec(v,1)+" km/h";}},
   {n:"Esf. relativo",f:function(sd){return num(sd.er);},u:function(v){return dec(v,0);}},
-  {n:"Duración",f:function(sd){return num(sd.min);},u:function(v){return dec(v,0)+" min";}}
+  {n:"Duración",f:function(sd){return num(sd.min);},u:function(v){return dec(v,0)+" min";}},
+  {n:"Distancia",f:function(sd){return num(sd.km);},u:function(v){return dec(v,1)+" km";}}
  ];
 }
 function radarHist(sport){
@@ -1045,14 +1051,15 @@ function radarBox(k,sid,sd){
  var avg=null;
  if(prev.length){
   avg=ax.map(function(a){
-   var t=0;prev.forEach(function(h){t+=a.f(h.sd);});return t/prev.length;
+   var t=0,n=0;prev.forEach(function(h){var v=a.f(h.sd);if(v>0){t+=v;n++;}});return n?t/n:0;
   });
  }
  var ns="http://www.w3.org/2000/svg",W=320,H=250,CX=160,CY=125,R=78;
  var svg=document.createElementNS(ns,"svg");
  svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.setAttribute("class","chart");
  svg.setAttribute("role","img");svg.setAttribute("aria-label","Rombo de la sesión");
- var ang=[-Math.PI/2,0,Math.PI/2,Math.PI];
+ var NA=ax.length,ang=[];
+ for(var j=0;j<NA;j++)ang.push(-Math.PI/2+j*2*Math.PI/NA);
  function pt(i,f){return [CX+Math.cos(ang[i])*R*f,CY+Math.sin(ang[i])*R*f];}
  function poly(fr,stroke,fill,dash,w){
   var p=document.createElementNS(ns,"polygon");
@@ -1070,8 +1077,8 @@ function radarBox(k,sid,sd){
   if(weight)t.setAttribute("font-weight",weight);
   t.textContent=s;svg.appendChild(t);
  }
- [0.25,0.5,0.75,1].forEach(function(f){poly([f,f,f,f],"var(--line)",null,f<1?"2 3":null,1);});
- for(var i=0;i<4;i++){
+ [0.25,0.5,0.75,1].forEach(function(f){poly(ax.map(function(){return f;}),"var(--line)",null,f<1?"2 3":null,1);});
+ for(var i=0;i<NA;i++){
   var e=pt(i,1),l=document.createElementNS(ns,"line");
   l.setAttribute("x1",CX);l.setAttribute("y1",CY);l.setAttribute("x2",e[0]);l.setAttribute("y2",e[1]);
   l.setAttribute("stroke","var(--line)");l.setAttribute("stroke-width",1);svg.appendChild(l);
@@ -1084,9 +1091,10 @@ function radarBox(k,sid,sd){
   c.setAttribute("cx",q[0]);c.setAttribute("cy",q[1]);c.setAttribute("r",3);
   c.setAttribute("fill","var(--strava)");svg.appendChild(c);
  });
- var lab=[[CX,CY-R-22,"middle"],[CX+R+8,CY-4,"start"],[CX,CY+R+16,"middle"],[CX-R-8,CY-4,"end"]];
  ax.forEach(function(a,i){
-  var L=lab[i];
+  var c=Math.cos(ang[i]),s=Math.sin(ang[i]),q=pt(i,1);
+  var L=[q[0]+c*10,q[1]+s*10,c>0.3?"start":c<-0.3?"end":"middle"];
+  if(s<-0.9)L[1]-=12;else if(s>0.3)L[1]+=8;else L[1]-=4;
   txt(L[0],L[1],a.n,L[2],10,"var(--fg-2)");
   txt(L[0],L[1]+13,cur[i]>0?a.u(cur[i]):"–",L[2],11.5,"var(--fg)","600");
  });
@@ -1100,6 +1108,12 @@ function radarBox(k,sid,sd){
   n.textContent="Borde exterior = tu mejor marca en "+nom+". Línea discontinua = media de tus últimas "+prev.length+" sesiones.";
  }
  box.appendChild(n);
+ var zt=sd.zt,tot=zt&&zt.length===6?zt.reduce(function(a,b){return a+b;},0):0;
+ if(tot&&cur[0]>0&&zt[2]/tot<0.6){
+  var w=document.createElement("div");w.className="zverd no";
+  w.textContent="Ojo con la eficiencia: solo "+Math.round(zt[2]/tot*100)+" % del tiempo en Z2. Con la FC alta sale más baja; compárala solo con sesiones de intensidad parecida.";
+  box.appendChild(w);
+ }
  return box;
 }
 
