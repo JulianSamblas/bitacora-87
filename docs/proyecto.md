@@ -206,6 +206,33 @@ valores se editan en la pestaña Tests de la app y recalculan las zonas.**
 Aviso: el reloj de muñeca lee por debajo justo en esfuerzo máximo. Si el test da menos de
 184, quedarse con el valor más alto ya registrado. Una banda pectoral resolvería esto.
 
+### Test de FC máxima — jueves 12 de noviembre de 2026
+
+Hecho en llano (no había cuesta), Apple Watch. Strava: actividad 20964453004, 4,51 km, 27 min.
+
+- Calentamiento de 9 min (no 15) que ya subió a 155-159: demasiado corto y demasiado duro.
+- Hizo **tres** bloques en vez de dos: ~2 min a 3:50-4:45/km → **183**; ~2 min → **182**;
+  ~1 min progresivo con sprint final (máx. 2:58/km) → **181**.
+- Tres picos independientes en 181-183 = meseta, no un artefacto. La FC sube con 1-2 min de
+  retraso tras cada cambio de ritmo y baja de forma gradual: patrón fisiológico, sin picos de
+  un segundo. El stream de cadencia no llegó, así que el enganche a cadencia se descartó por
+  la forma de la curva, no cruzando datos.
+- "Vuelta a la calma" de 7 min a ~6:00-6:40/km con FC 159-170: no fue vuelta a la calma.
+
+**Decisión: FC máxima = 184** (183 < 184, se aplica la regla acordada). El 193 queda
+descartado definitivamente.
+
+Zonas Z2 (60-70 % de reserva) con FC máx. 184, según la FC en reposo que salga:
+
+| FC reposo | Z2 |
+|---|---|
+| 49 | 130-144 |
+| 65 | 136-148 |
+
+**Hallazgo importante para el plan:** su ritmo "suave" actual (6:00-6:40/km) le pone en
+155-170. Para correr en Z2 tendrá que ir bastante más lento o alternar carrera y andar
+durante las primeras semanas. Mientras tanto, la bici es mejor opción para los días de Z2.
+
 ### Problema de ejecución detectado
 
 Su carrera del 29 de octubre: 7,07 km a 6:21/km con **FC media de 161**. Con cualquiera de
@@ -268,7 +295,8 @@ con veredicto de ejecución.
 
 ## 7. Cosas pendientes
 
-- Test de FC máxima y media de 7 días de FC en reposo → meter en la pestaña Tests.
+- ~~Test de FC máxima~~ hecho el 12-nov → 184 (meter en la pestaña Tests).
+- Media de 7 días de FC en reposo (app Salud, vista semanal) → pestaña Tests.
 - Recalibrar la sentadilla con barra libre (sus 107,5×5 eran en multipower; contar con un
   10-20 % menos).
 - Hablar con su entrenador de nutrición: pasar de superávit a mantenimiento, proteína a
