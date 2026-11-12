@@ -264,8 +264,16 @@ Añadido a la pantalla de inicio del iPhone vía Safari.
 - **Día** — sesiones del día con su prescripción, tick de completado, registro serie a serie
   (peso y reps/metros/segundos según el ejercicio), hábitos editables, horas de máster,
   peso corporal, notas, y resumen semanal de 8 métricas.
-- **Progresión** — gráficos SVG propios: mejor serie por ejercicio, tonelaje por sesión,
-  km por semana, peso corporal.
+- **Progresión** (rehecha el 12-nov) — todo sobre un eje de semanas del ciclo (B1·S3),
+  con las descargas sombreadas: minutos por zona cada semana; eficiencia aeróbica
+  (m/latido) solo de sesiones con ≥50 % en Z2, carrera y bici por separado; series hechas
+  frente a previstas por grupo muscular (últimas 6 semanas, objetivo al 60 % en descarga,
+  % de torso); tabla de récords por repeticiones; cambio de cada test frente a la batería
+  anterior; peso corporal en media semanal. Se quitaron "kg por sesión" (mezclaba sesiones
+  distintas) y "km por semana" (sumaba bici y carrera).
+- **Día** también muestra, al traer una sesión de Strava, un pentágono: eficiencia,
+  velocidad, esfuerzo relativo, duración y distancia, contra la mejor marca del deporte y la
+  media de las 5 anteriores.
 - **Tests** — FC en reposo y máxima editables (recalculan las zonas en toda la app), tabla
   de zonas, y batería de 13 tests con comparación contra la medición anterior.
 

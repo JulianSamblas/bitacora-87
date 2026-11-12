@@ -178,6 +178,25 @@ svg.chart{width:100%;height:auto;display:block}
 .charthead .t{font-weight:600;font-size:13.5px}
 .charthead .d{font-size:11.5px;color:var(--fg-2);font-variant-numeric:tabular-nums}
 .nodata{padding:16px 13px;font-size:12.5px;color:var(--fg-2);line-height:1.5}
+.pnote{padding:0 13px 12px;font-size:11.5px;color:var(--fg-2);line-height:1.45}
+.pnote.no{color:var(--alert)}
+.leg{display:flex;flex-wrap:wrap;gap:4px 10px;padding:0 13px 8px;font-size:11px;color:var(--fg-2)}
+.leg span{display:inline-flex;align-items:center;gap:4px}
+.leg b{width:8px;height:8px;border-radius:2px;display:inline-block}
+.hm{display:grid;gap:3px;padding:10px 12px 8px;font-size:11px;font-variant-numeric:tabular-nums}
+.hm div{padding:6px 1px;border-radius:5px;text-align:center;min-width:0;overflow:hidden;white-space:nowrap}
+.hm .rh{text-align:left;color:var(--fg-2);padding-left:0}
+.hm .ch{color:var(--fg-2);font-size:9.5px}
+.hm .emp{color:var(--fg-2)}
+table.rec{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;margin:8px 0}
+table.rec td,table.rec th{padding:7px 13px;border-top:1px solid var(--line);text-align:left}
+table.rec th{font-weight:500;color:var(--fg-2);font-size:11px}
+table.rec .new{color:var(--accent);font-weight:600}
+.tb{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 46px;gap:7px 8px;align-items:center;padding:11px 13px;font-size:12px}
+.tb .bar2{position:relative;height:10px}
+.tb .bar2:before{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;border-left:1px solid var(--line)}
+.tb .bar2 i{position:absolute;top:0;height:100%;border-radius:2px}
+.tb .v{text-align:right;font-variant-numeric:tabular-nums}
 
 .trow{display:grid;grid-template-columns:1fr 74px 62px 58px;gap:7px;align-items:center;padding:9px 13px;border-top:1px solid var(--line)}
 .trow:first-of-type{border-top:0}
@@ -297,19 +316,27 @@ svg.chart{width:100%;height:auto;display:block}
 
   <div id="v_prog" hidden>
     <section>
-      <div class="lbl">Progresión por ejercicio</div>
+      <div class="lbl">Aeróbico · minutos por zona</div>
+      <div class="card" id="pz"></div>
+    </section>
+    <section>
+      <div class="lbl">Aeróbico · eficiencia</div>
+      <div class="card" id="pe"></div>
+    </section>
+    <section>
+      <div class="lbl">Fuerza · volumen por grupo</div>
+      <div class="card" id="pv"></div>
+    </section>
+    <section>
+      <div class="lbl">Fuerza · récords</div>
       <div class="card">
         <div class="pad"><select id="exsel"></select></div>
         <div id="exchart"></div>
       </div>
     </section>
     <section>
-      <div class="lbl">Tonelaje por sesión de gimnasio</div>
-      <div class="card" id="tonchart"></div>
-    </section>
-    <section>
-      <div class="lbl">Kilómetros por semana</div>
-      <div class="card" id="kmchart"></div>
+      <div class="lbl">Batería de tests</div>
+      <div class="card" id="pt"></div>
     </section>
     <section>
       <div class="lbl">Peso corporal</div>
@@ -1226,47 +1253,302 @@ function exSeries(sid,eid){
  });
  return out.slice(-14);
 }
+/* ---------- render: progresión ----------
+   Marco común: eje en semanas del ciclo (B1·S3 = bloque 1, semana 3), descargas sombreadas.
+   Aeróbico: minutos por zona y eficiencia en sesiones Z2. Fuerza: series hechas frente a
+   previstas por grupo y récords por repeticiones. Tests: cambio frente a la batería anterior. */
+var GRUPOS=[
+ ["Pierna",["sentadilla","rumano","bulgara","hexagonal","gemelo","wallsit"]],
+ ["Potencia",["pogo","cajon","saltos","swing","balon"]],
+ ["Empuje",["banca","pressmil","inclinado","peck","lat","pressbarra"]],
+ ["Tirón",["remo","gironda","jalon","deltpost","dominadas","remomanc"]],
+ ["Brazos",["curltri"]],
+ ["Core",["pallof","rueda","plancha"]],
+ ["Agarre",["farmer","suitcase","colgado","holdbarra"]]
+];
+var TORSO=[2,3,4];
+function grupoDe(eid){for(var i=0;i<GRUPOS.length;i++)if(GRUPOS[i][1].indexOf(eid)>=0)return i;return -1;}
+function daysInWeek(m){var o=[];for(var i=0;i<7;i++)o.push(key(addD(m,i)));return o;}
+function weekLabel(m){var c=ctx(m);return c.pre?"Arranque":"B"+(c.bi+1)+"·S"+c.wb;}
+function progWeeks(n){
+ var cur=monday(new Date()),ks=Object.keys(state.days).sort();
+ var start=addD(cur,-7*(n-1));
+ if(ks.length){var f=monday(parseK(ks[0]));if(f>start)start=f;}
+ var out=[];for(var m=start;m<=cur;m=addD(m,7))out.push(m);
+ return out;
+}
+function svgEl(svg,name,a){
+ var e=document.createElementNS("http://www.w3.org/2000/svg",name);
+ for(var x in a)if(a[x]!=null)e.setAttribute(x,a[x]);
+ svg.appendChild(e);return e;
+}
+function svgTxt(svg,x,y,s,o){
+ o=o||{};
+ var t=svgEl(svg,"text",{x:x,y:y,"font-size":o.size||8.5,fill:o.col||"var(--fg-2)",
+  "text-anchor":o.anchor||"middle","font-family":"Inter,system-ui,sans-serif","font-weight":o.w||null});
+ t.textContent=s;return t;
+}
+function weekFrame(weeks,G){
+ var svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+ svg.setAttribute("viewBox","0 0 "+G.W+" "+G.H);svg.setAttribute("class","chart");svg.setAttribute("role","img");
+ var bw=(G.W-G.PL-G.PR)/weeks.length,cur=key(monday(new Date()));
+ weeks.forEach(function(m,i){
+  var c=ctx(m),x=G.PL+i*bw,now=key(m)===cur;
+  if(!c.pre&&c.deload)svgEl(svg,"rect",{x:x,y:G.PT,width:bw,height:G.H-G.PT-G.PB,fill:"var(--surface-3)"});
+  if(!c.pre&&c.wb===1&&i>0)svgEl(svg,"line",{x1:x,y1:G.PT,x2:x,y2:G.H-G.PB+3,stroke:"var(--fg-2)","stroke-width":1,"stroke-dasharray":"2 2"});
+  svgTxt(svg,x+bw/2,G.H-G.PB+12,weekLabel(m),{col:now?"var(--fg)":null,w:now?"700":null,size:weeks.length>8?7.5:8.5});
+  svgTxt(svg,x+bw/2,G.H-G.PB+22,shortK(key(m)),{size:7.5});
+ });
+ return {svg:svg,bw:bw};
+}
+function cardHead(box,t,d){
+ var h=document.createElement("div");h.className="charthead";
+ var a=document.createElement("span");a.className="t";a.textContent=t;
+ var b=document.createElement("span");b.className="d";b.textContent=d||"";
+ h.appendChild(a);h.appendChild(b);box.appendChild(h);
+}
+function cardNote(box,t,cl){var n=document.createElement("div");n.className="pnote"+(cl?" "+cl:"");n.textContent=t;box.appendChild(n);}
+function noData(box,t){var e=document.createElement("div");e.className="nodata";e.textContent=t;box.appendChild(e);}
+function legend(box,items){
+ var l=document.createElement("div");l.className="leg";
+ items.forEach(function(it){var s=document.createElement("span");var b=document.createElement("b");b.style.background=it[1];s.appendChild(b);s.appendChild(document.createTextNode(it[0]));l.appendChild(s);});
+ box.appendChild(l);
+}
+function niceMax(v,step){return Math.max(step,Math.ceil(v/step)*step);}
+
+/* Aeróbico 1: minutos por zona cada semana */
+function progZonas(box,weeks){
+ box.innerHTML="";
+ var st=weeks.map(function(m){
+  var a=[0,0,0,0,0,0];
+  daysInWeek(m).forEach(function(k){
+   var r=state.days[k];if(!r||!r.data)return;
+   for(var sid in r.data){var sd=r.data[sid];if(sd&&sd.zt&&sd.zt.length===6)for(var i=0;i<6;i++)a[i]+=(sd.zt[i]||0)/60;}
+  });
+  return a;
+ });
+ var tots=st.map(function(a){return a.reduce(function(x,y){return x+y;},0);});
+ if(!tots.some(function(v){return v>0;})){noData(box,"Cuando traigas sesiones de Strava, aquí verás cuántos minutos haces en cada zona cada semana.");return;}
+ var li=tots.length-1,lt=tots[li],la=st[li];
+ cardHead(box,"Minutos por zona",lt?("Esta semana "+Math.round(lt)+" min · "+Math.round(la[2]/lt*100)+" % en Z2"):"Esta semana sin cardio");
+ var G={W:340,H:200,PL:32,PR:6,PT:10,PB:30};
+ var f=weekFrame(weeks,G),svg=f.svg,mx=niceMax(Math.max.apply(null,tots),30);
+ function Y(v){return G.PT+(G.H-G.PT-G.PB)*(1-v/mx);}
+ [0,mx/2,mx].forEach(function(v){
+  svgEl(svg,"line",{x1:G.PL,y1:Y(v),x2:G.W-G.PR,y2:Y(v),stroke:"var(--line)","stroke-width":1,"stroke-dasharray":v?"2 3":null});
+  svgTxt(svg,G.PL-4,Y(v)+3,Math.round(v)+"′",{anchor:"end"});
+ });
+ st.forEach(function(a,i){
+  var x=G.PL+i*f.bw+f.bw*0.2,w=f.bw*0.6,acc=0;
+  a.forEach(function(v,z){
+   if(v<=0)return;
+   svgEl(svg,"rect",{x:x,y:Y(acc+v),width:w,height:Math.max(0.5,Y(acc)-Y(acc+v)),fill:"var("+ZVAR[z]+")"});
+   acc+=v;
+  });
+  if(acc>0)svgTxt(svg,x+w/2,Y(acc)-3,Math.round(acc),{size:7.5});
+ });
+ var wrap=document.createElement("div");wrap.className="chartwrap";wrap.appendChild(svg);box.appendChild(wrap);
+ legend(box,ZNOM.map(function(n,i){return [n,"var("+ZVAR[i]+")"];}));
+ var alto=lt?(la[3]+la[4]+la[5])/lt:0;
+ if(lt&&!ctx(weeks[li]).pre&&ctx(weeks[li]).bi===0&&alto>0.25)cardNote(box,"Bloque de base con "+Math.round(alto*100)+" % del tiempo en Z3 o más. El volumen de fondo debería ser casi todo Z2.","no");
+ else cardNote(box,"Semanas sombreadas = descarga. Las zonas de cada sesión se calculan con la FC que tenías guardada al traerla.");
+}
+
+/* Aeróbico 2: eficiencia en sesiones Z2 */
+function progEficiencia(box,weeks){
+ box.innerHTML="";
+ var t0=weeks[0],ser={run:[],bike:[]};
+ Object.keys(state.days).sort().forEach(function(k){
+  var d=parseK(k);if(d<t0)return;
+  var r=state.days[k];if(!r||!r.data)return;
+  for(var sid in r.data){
+   var sd=r.data[sid];if(!sd||!sd.zt||sd.zt.length!==6)continue;
+   var tot=sd.zt.reduce(function(a,b){return a+b;},0);if(!tot||sd.zt[2]/tot<0.5)continue;
+   var sp=sportKey(k,sid);if(sp!=="run"&&sp!=="bike")continue;
+   var e=sesEff(sd);if(!e)continue;
+   ser[sp].push({t:(d-t0)/604800000,v:e,k:k});
+  }
+ });
+ var all=ser.run.concat(ser.bike);
+ if(!all.length){noData(box,"Aquí saldrá la eficiencia (metros por latido) de las sesiones con al menos la mitad del tiempo en Z2. Todavía no hay ninguna: la carrera del 12 de noviembre fue un test, no un fondo.");return;}
+ var COL={run:"var(--strava)",bike:"var(--z1)"},NOM={run:"Carrera",bike:"Bici"};
+ var hd=[];
+ ["run","bike"].forEach(function(s){
+  var p=ser[s];if(!p.length)return;
+  var l=p[p.length-1].v,dd=l-p[0].v;
+  hd.push(NOM[s]+" "+dec(l,2)+(p.length>1?" ("+(dd>=0?"+":"−")+dec(Math.abs(dd),2)+")":""));
+ });
+ cardHead(box,"Metros por latido en Z2",hd.join(" · "));
+ var G={W:340,H:190,PL:34,PR:8,PT:12,PB:30};
+ var f=weekFrame(weeks,G),svg=f.svg;
+ var vs=all.map(function(p){return p.v;}),mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs);
+ var pad=Math.max((mx-mn)*0.15,0.05);mn-=pad;mx+=pad;
+ function X(t){return G.PL+t*f.bw;}
+ function Y(v){return G.PT+(G.H-G.PT-G.PB)*(1-(v-mn)/(mx-mn));}
+ [mn,(mn+mx)/2,mx].forEach(function(v,i){
+  svgEl(svg,"line",{x1:G.PL,y1:Y(v),x2:G.W-G.PR,y2:Y(v),stroke:"var(--line)","stroke-width":1,"stroke-dasharray":i?"2 3":null});
+  svgTxt(svg,G.PL-4,Y(v)+3,dec(v,2),{anchor:"end"});
+ });
+ ["bike","run"].forEach(function(s){
+  var p=ser[s];if(!p.length)return;
+  if(p.length>1)svgEl(svg,"polyline",{points:p.map(function(q){return X(q.t).toFixed(1)+","+Y(q.v).toFixed(1);}).join(" "),
+   fill:"none",stroke:COL[s],"stroke-width":1.8,"stroke-linejoin":"round"});
+  p.forEach(function(q){svgEl(svg,"circle",{cx:X(q.t),cy:Y(q.v),r:3.2,fill:COL[s]});});
+ });
+ var wrap=document.createElement("div");wrap.className="chartwrap";wrap.appendChild(svg);box.appendChild(wrap);
+ legend(box,["run","bike"].filter(function(s){return ser[s].length;}).map(function(s){return [NOM[s],COL[s]];}));
+ cardNote(box,"Solo sesiones con al menos la mitad del tiempo en Z2. Si la línea sube, avanzas más con las mismas pulsaciones: la base está mejorando.");
+}
+
+/* Fuerza 1: series hechas frente a previstas, por grupo muscular */
+function weekVolume(m){
+ var c=ctx(m),fa=(!c.pre&&c.deload)?0.6:1,plan=GRUPOS.map(function(){return 0;}),done=plan.slice();
+ for(var dw=1;dw<=7;dw++)sessionsFor(c,dw).forEach(function(s){
+  if(s.metrics!=="gym"||!s.ex)return;
+  s.ex.forEach(function(e){var g=grupoDe(e.id);if(g>=0)plan[g]+=e.s||1;});
+ });
+ plan=plan.map(function(v){return Math.round(v*fa);});
+ daysInWeek(m).forEach(function(k){
+  var r=state.days[k];if(!r||!r.data)return;
+  for(var sid in r.data){
+   var sd=r.data[sid];if(!sd||!sd.ex)continue;
+   var s=findSes(k,sid);if(!s||!s.ex)continue;
+   s.ex.forEach(function(e){
+    var cur=sd.ex[e.id],g=grupoDe(e.id);if(!cur||g<0)return;
+    for(var i=1;i<=nSeries(e,cur);i++)if(has(cur["r"+i]))done[g]++;
+   });
+  }
+ });
+ return {plan:plan,done:done};
+}
+function progVolumen(box,weeks){
+ box.innerHTML="";
+ var ws=weeks.slice(-6),vol=ws.map(weekVolume);
+ var anyDone=vol.some(function(v){return v.done.some(function(x){return x>0;});});
+ if(!anyDone){noData(box,"Sin series registradas todavía.");return;}
+ var last=vol[vol.length-1],td=0,tp=0,torso=0;
+ last.done.forEach(function(v,i){td+=v;tp+=last.plan[i];if(TORSO.indexOf(i)>=0)torso+=v;});
+ cardHead(box,"Series hechas / previstas",td?("Esta semana "+td+" de "+tp+" · torso "+Math.round(torso/td*100)+" %"):("Esta semana 0 de "+tp));
+ var g=document.createElement("div");g.className="hm";
+ g.style.gridTemplateColumns="66px repeat("+ws.length+",minmax(0,1fr))";
+ function cell(t,cl,bg){var d=document.createElement("div");if(cl)d.className=cl;if(bg)d.style.background=bg;d.textContent=t;g.appendChild(d);return d;}
+ var cur=key(monday(new Date()));
+ cell("","rh");
+ ws.forEach(function(m){var c=cell(key(m)===cur?"En curso":weekLabel(m),"ch");if(ctx(m).deload&&!ctx(m).pre)c.textContent+=" ↓";});
+ GRUPOS.forEach(function(gr,gi){
+  if(!vol.some(function(v){return v.plan[gi]||v.done[gi];}))return;
+  cell(gr[0],"rh");
+  vol.forEach(function(v){
+   var p=v.plan[gi],d=v.done[gi];
+   if(!p&&!d){cell("–","emp");return;}
+   var ratio=p?d/p:2,bg=null;
+   if(ratio>1.15)bg="color-mix(in srgb, var(--accent-2) 45%, transparent)";
+   else if(ratio>=0.15)bg="color-mix(in srgb, var(--accent) "+Math.round(15+Math.min(ratio,1)*55)+"%, transparent)";
+   cell(d+"/"+p,null,bg);
+  });
+ });
+ box.appendChild(g);
+ cardNote(box,"Verde más intenso = más cerca de lo previsto. Amarillo = más series de las previstas. ↓ = semana de descarga (objetivo al 60 %). El torso es lo primero que debe caer si vas cargado.");
+}
+
+/* Fuerza 2: récords por repeticiones */
+function progRecords(box,ex){
+ box.innerHTML="";
+ if(!ex){noData(box,"Elige un ejercicio.");return;}
+ var e0=ex.e,byTime=e0.u==="s"||e0.u==="m",rec={},lastK=null,cutoff=key(addD(new Date(),-14));
+ Object.keys(state.days).sort().forEach(function(k){
+  var r=state.days[k],cur=r&&r.data&&r.data[ex.sid]&&r.data[ex.sid].ex&&r.data[ex.sid].ex[ex.eid];
+  if(!cur)return;
+  var s=findSes(k,ex.sid);if(!s||!s.ex)return;
+  var e=null;s.ex.forEach(function(x){if(x.id===ex.eid)e=x;});if(!e)return;
+  for(var i=1;i<=nSeries(e,cur);i++){
+   var rr=num(cur["r"+i]),pp=num(cur["p"+i]);if(!rr)continue;
+   lastK=k;
+   var kk=byTime?pp:rr,val=byTime?rr:pp;
+   if(!rec[kk]||val>rec[kk].v)rec[kk]={v:val,k:k};
+  }
+ });
+ var keys=Object.keys(rec).map(Number).sort(function(a,b){return a-b;});
+ if(!keys.length){noData(box,"Aún no has registrado este ejercicio.");return;}
+ var u=e0.u==="s"?" s":e0.u==="m"?" m":"",pk=e0.x2?" kg/mano":" kg";
+ cardHead(box,ex.n,"Último registro: "+shortK(lastK));
+ var t=document.createElement("table");t.className="rec";
+ var h=t.insertRow();
+ [byTime?"Carga":"Reps",byTime?"Mejor marca":"Mejor peso","Fecha"].forEach(function(x){var th=document.createElement("th");th.textContent=x;h.appendChild(th);});
+ keys.forEach(function(kk){
+  var r=rec[kk],row=t.insertRow(),nuevo=r.k>=cutoff;
+  row.insertCell().textContent=byTime?(kk?dec(kk,1)+pk:"Sin carga"):(kk+(e0.lado?" por lado":""));
+  row.insertCell().textContent=byTime?(dec(r.v,0)+u):(r.v?dec(r.v,1)+pk:"Peso corporal");
+  var c=row.insertCell();c.textContent=shortK(r.k)+(nuevo?" · nuevo":"");if(nuevo)c.className="new";
+ });
+ box.appendChild(t);
+ cardNote(box,byTime?"Mejor tiempo o distancia con cada carga.":"Mejor peso movido a cada número de repeticiones. Más peso a las mismas reps, o más reps con el mismo peso, es progresar; un día de menos peso en descarga no es retroceder.");
+}
+
+/* Tests: cambio frente a la batería anterior */
+function progTests(box){
+ box.innerHTML="";
+ var ks=testKeys(),rows=[];
+ TESTS.forEach(function(t){
+  var vals=ks.filter(function(k){var v=state.tests[k]&&state.tests[k].v;return v&&has(v[t.id]);});
+  if(vals.length<2)return;
+  var a=num(state.tests[vals[vals.length-2]].v[t.id]),b=num(state.tests[vals[vals.length-1]].v[t.id]);
+  if(!a)return;
+  rows.push({t:t,a:a,b:b,ch:(b-a)/a*100});
+ });
+ if(!rows.length){
+  var m=monday(new Date()),nx=null;
+  for(var i=0;i<40&&!nx;i++){var mm=addD(m,7*i),c=ctx(mm);if(!c.pre&&c.tests)nx=mm;}
+  noData(box,"Con dos baterías de tests verás aquí cuánto ha cambiado cada uno."+(nx?" La próxima toca la semana del "+shortK(key(nx))+".":""));
+  return;
+ }
+ var good=rows.filter(function(r){return r.t.dir!=="flat"&&((r.t.dir==="up")===(r.ch>0))&&Math.abs(r.ch)>=1;}).length;
+ cardHead(box,"Cambio frente a la batería anterior",good+" de "+rows.filter(function(r){return r.t.dir!=="flat";}).length+" mejoran");
+ var g=document.createElement("div");g.className="tb";
+ rows.forEach(function(r){
+  var n=document.createElement("div");n.textContent=r.t.n;g.appendChild(n);
+  var bar=document.createElement("div");bar.className="bar2";
+  var i2=document.createElement("i"),w=Math.min(Math.abs(r.ch),30)/30*50;
+  var ok=r.t.dir==="flat"?null:((r.t.dir==="up")===(r.ch>0));
+  i2.style.width=Math.max(w,1)+"%";
+  if(r.ch>=0)i2.style.left="50%";else i2.style.right="50%";
+  i2.style.background=Math.abs(r.ch)<1||ok===null?"var(--fg-2)":ok?"var(--accent)":"var(--alert)";
+  bar.appendChild(i2);g.appendChild(bar);
+  var v=document.createElement("div");v.className="v";v.textContent=(r.ch>=0?"+":"−")+dec(Math.abs(r.ch),0)+" %";g.appendChild(v);
+ });
+ box.appendChild(g);
+ cardNote(box,"Verde = mejora según el sentido de cada test (en FC en reposo o caída del agarre, bajar es mejorar). El peso corporal sale en gris: el objetivo es mantenerlo.");
+}
+
 function renderProg(){
  if(state.tab!=="prog")return;
- var exs=allExercises();
- var sel=$("exsel");
- if(sel.options.length!==exs.length){
-  sel.innerHTML="";
-  exs.forEach(function(x){
-   var o=document.createElement("option");
-   o.value=x.sid+"|"+x.eid;o.textContent=x.n;
-   sel.appendChild(o);
-  });
- }
- if(!state.exSel)state.exSel=exs.length?(exs[0].sid+"|"+exs[0].eid):"";
- sel.value=state.exSel;
- var parts=state.exSel.split("|");
- var pts=parts.length===2?exSeries(parts[0],parts[1]):[];
- chartCard($("exchart"),"Mejor serie",pts,{fmt:function(v){return dec(v,1)+" kg";}},
-  "Aún no has registrado este ejercicio. Cuando lo hagas dos o más veces, verás la línea aquí.");
+ var weeks=progWeeks(10);
+ progZonas($("pz"),weeks);
+ progEficiencia($("pe"),weeks);
+ progVolumen($("pv"),weeks);
 
- var ks=Object.keys(state.days).sort(),ton=[];
- ks.forEach(function(k){
-  var t=totals(k);
-  if(t.kg>0)ton.push({v:t.kg,k:shortK(k)});
+ var exs=allExercises(),withData=exs.filter(function(x){
+  return Object.keys(state.days).some(function(k){var r=state.days[k];return r&&r.data&&r.data[x.sid]&&r.data[x.sid].ex&&r.data[x.sid].ex[x.eid];});
  });
- chartCard($("tonchart"),"Kg por sesión",ton.slice(-14),{zero:true,fmt:function(v){return miles(v)+" kg";}},
-  "Sin sesiones de gimnasio registradas todavía.");
+ var list=withData.length?withData:exs,sel=$("exsel");
+ sel.innerHTML="";
+ list.forEach(function(x){var o=document.createElement("option");o.value=x.sid+"|"+x.eid;o.textContent=x.n;sel.appendChild(o);});
+ if(!list.some(function(x){return x.sid+"|"+x.eid===state.exSel;}))state.exSel=list.length?(list[0].sid+"|"+list[0].eid):"";
+ sel.value=state.exSel;
+ progRecords($("exchart"),list.filter(function(x){return x.sid+"|"+x.eid===state.exSel;})[0]);
+
+ progTests($("pt"));
 
  var wk={},order=[];
- ks.forEach(function(k){
-  var mk=key(monday(parseK(k))),t=totals(k);
-  if(!wk[mk]){wk[mk]=0;order.push(mk);}
-  wk[mk]+=t.bike+t.run;
+ Object.keys(state.days).sort().forEach(function(k){
+  var r=state.days[k];if(!r||!has(r.bw))return;
+  var m=key(monday(parseK(k)));
+  if(!wk[m]){wk[m]={s:0,n:0};order.push(m);}
+  wk[m].s+=num(r.bw);wk[m].n++;
  });
- var kms=order.filter(function(m){return wk[m]>0;}).map(function(m){return{v:wk[m],k:shortK(m)};});
- chartCard($("kmchart"),"Km por semana",kms.slice(-14),{zero:true,fmt:function(v){return dec(v,1)+" km";}},
-  "Sin kilómetros registrados todavía.");
-
- var bw=[];
- ks.forEach(function(k){var r=state.days[k];if(r&&has(r.bw))bw.push({v:num(r.bw),k:shortK(k)});});
- chartCard($("bwchart"),"Peso corporal",bw.slice(-20),{fmt:function(v){return dec(v,1)+" kg";}},
-  "Anota tu peso una vez por semana en la pestaña Día. Sin él no se puede seguir la fuerza relativa.");
+ var bw=order.map(function(m){return{v:wk[m].s/wk[m].n,k:shortK(m)};});
+ chartCard($("bwchart"),"Media semanal",bw.slice(-16),{fmt:function(v){return dec(v,1)+" kg";}},
+  "Anota tu peso en la pestaña Día. Aquí verás la media de cada semana, que es lo que importa: el peso de un día suelto varía más de un kilo.");
 }
 
 /* ---------- render: tests ---------- */
