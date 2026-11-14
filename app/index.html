@@ -669,30 +669,46 @@ function errText(code,msg){
 }
 function pick(o,keys){for(var i=0;i<keys.length;i++){var v=o&&o[keys[i]];if(has(v))return v;}return null;}
 
+/* Busca en toda la semana de la sesión, no solo ese día: si un entrenamiento se cambia de
+   día (gimnasio del viernes hecho el sábado), se puede asignar igualmente a su sesión.
+   Excluye las actividades ya asignadas a otra sesión de la semana. */
+function usedActs(mon,k,sid){
+ var u={};
+ for(var i=0;i<7;i++){
+  var kk=key(addD(mon,i)),r=state.days[kk];if(!r||!r.data)continue;
+  for(var s2 in r.data){var a=r.data[s2]&&r.data[s2].actid;if(a&&!(kk===k&&s2===sid))u[String(a)]=1;}
+ }
+ return u;
+}
 function importStrava(sid){
- var k=key(state.sel),rec=day(k),s=findSes(k,sid);
+ var k=key(state.sel),rec=day(k),s=findSes(k,sid),mon=monday(parseK(k));
  if(!s)return;
  if(!state.mcp){stravaMsg(sid,"Strava no está disponible en esta vista.",true);return;}
  if(state.busy[sid])return;
  state.busy[sid]=true;state.picks[sid]=null;
  stravaMsg(sid,"Buscando en Strava…");
  state.mcp.callTool("Strava","list_activities",{
-   range_start:k+"T00:00:00",range_end:k+"T23:59:59",first:30,use_preferred_units:true
+   range_start:key(mon)+"T00:00:00",range_end:key(addD(mon,6))+"T23:59:59",first:60,use_preferred_units:true
  },{cache:{staleTime:60000}}).then(function(res){
   var p=res&&res.payload,acts=(p&&p.activities)||[];
-  var want=sportsFor(s,rec);
-  var list=want?acts.filter(function(a){return want.indexOf(a.sport_type)>=0;}):acts;
+  var want=sportsFor(s,rec),used=usedActs(mon,k,sid);
+  var list=acts.filter(function(a){
+   if(used[String(a.id)])return false;
+   return want?want.indexOf(a.sport_type)>=0:SPORTS.gym.indexOf(a.sport_type)<0;
+  });
+  list.sort(function(a,b){
+   var da=(a.start_local||"").slice(0,10)===k?0:1,db=(b.start_local||"").slice(0,10)===k?0:1;
+   return da-db||String(a.start_local).localeCompare(String(b.start_local));
+  });
+  var same=list.filter(function(a){return (a.start_local||"").slice(0,10)===k;});
   if(!list.length){
    state.busy[sid]=false;
-   stravaMsg(sid,acts.length?("Ese día hay "+acts.length+" actividad(es) en Strava, pero ninguna de este tipo."):"No hay ninguna actividad en Strava ese día.",true);
+   stravaMsg(sid,"Esta semana no hay en Strava ninguna actividad de este tipo sin asignar.",true);
    return;
   }
-  if(list.length>1){
-   state.busy[sid]=false;state.picks[sid]=list;
-   stravaMsg(sid,"Hay "+list.length+" actividades. Elige una:");
-   return;
-  }
-  applyAct(sid,list[0]);
+  if(same.length===1){applyAct(sid,same[0]);return;}
+  state.busy[sid]=false;state.picks[sid]=list;
+  stravaMsg(sid,same.length?"Hay "+same.length+" actividades ese día. Elige una:":"Ese día no hay ninguna, pero esta semana sí. Si cambiaste el entrenamiento de día, elige cuál es:");
  }).catch(function(e){
   state.busy[sid]=false;
   stravaMsg(sid,errText(e&&e.code,e&&e.message),true);
@@ -919,8 +935,9 @@ function renderDay(){
      var it=document.createElement("div");it.className="pick";
      it.setAttribute("data-act","pickact");it.setAttribute("data-sid",s.id);it.setAttribute("data-aid",String(a.id));
      it.setAttribute("role","button");it.setAttribute("tabindex","0");
-     var sm2=a.summary||{},hora=(a.start_local||"").slice(11,16);
-     var det2=[hora,sm2.distance!=null?dec(sm2.distance,1)+" km":null,sm2.moving_time!=null?dec(sm2.moving_time/60,0)+" min":null,a.sport_type].filter(Boolean).join(" · ");
+     var sm2=a.summary||{},hora=(a.start_local||"").slice(11,16),ad=(a.start_local||"").slice(0,10);
+     var dia=ad&&ad!==key(state.sel)?DIAS[(parseK(ad).getDay()+6)%7]+" "+parseK(ad).getDate():null;
+     var det2=[dia,hora,sm2.distance!=null?dec(sm2.distance,1)+" km":null,sm2.moving_time!=null?dec(sm2.moving_time/60,0)+" min":null,a.sport_type].filter(Boolean).join(" · ");
      it.textContent=a.name||"Actividad";
      var sml=document.createElement("small");sml.textContent=det2;it.appendChild(sml);
      pk.appendChild(it);
